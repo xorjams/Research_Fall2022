@@ -245,7 +245,7 @@ def getHeatCapacity(Energy, EnergySquare, Beta):
     
     e,v = np.linalg.eigh(H_SF.toarray()) 
     
-    return (Beta**2)*np.sum(np.multiply(((e-ChemPotential)**2), getFermiDirac(e,Beta),( 1 - getFermiDirac(e,Beta))))
+    return getEnergy(H_SF,Beta)**2 + np.sum(np.multiply(((e-ChemPotential)**2), getFermiDirac(e,Beta),( 1 - getFermiDirac(e,Beta))))
     
 
                                        
