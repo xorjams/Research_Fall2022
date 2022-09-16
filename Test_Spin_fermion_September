@@ -249,7 +249,7 @@ def getHeatCapacity(H_SF, Beta):
     
     e,v = np.linalg.eigh(H_SF.toarray()) 
     
-    return getEnergy(H_SF,Beta)**2 + np.sum(np.multiply(((e-ChemPotential)**2), np.divide(1,(np.exp(e*Beta)+1)),( 1 - np.divide(1,(np.exp(e*Beta)+1)))))
+    return np.sum((np.multiply((1/(np.exp(e*Beta)+1)),e))**2)   + np.sum(np.multiply(((e-ChemPotential)**2), np.divide(1,(np.exp(e*Beta)+1)),( 1 - np.divide(1,(np.exp(e*Beta)+1)))))
     
 
                                        
