@@ -18,8 +18,10 @@ parser.add_argument('-c','--Coupling', type = float, help = 'spin-spin coupling'
 parser.add_argument('-d','--Dimension' ,type = int, help = 'spatial dimension')
 parser.add_argument('-s','--Size', type = int, help = 'system size')
 
-parser.add_argument('-SW','--sweep', type = int, help = 'Number of spin flips per metropolis sweep')
-parser.add_argument('-ST','--steps', type = int, help = 'Number of sweeps per measurement')
+
+parser.add_argument('-FL', '--Flip', type = int, help = 'Number of spin flips per metropolis sweep')
+parser.add_argument('-SW','--sweep', type = int, help = 'Number of metropolis sweeps per step')
+parser.add_argument('-ST','--steps', type = int, help = 'Number of steps per measurement')
 parser.add_argument('-ME', '--Measure' , type = int, help = 'Number of measurements')
 parser.add_argument('-T','--temp', type = float, help = 'Temperature')
 #parser.add_argument('-Mu','--Chem', type = float, help = 'ChemPotential')
@@ -131,8 +133,6 @@ e_kin,v_kin = np.linalg.eigh(Hk_pbc.toarray())
 
 
 
-S = np.random.normal(0,1,size=(L**D,3))
-S = (S.T/np.linalg.norm(S,axis=1)).T
 
 # get spin-fermion hamiltonian
 #H_SF = get_H_SF(Hk_pbc,S,J=J)
@@ -142,8 +142,7 @@ S = (S.T/np.linalg.norm(S,axis=1)).T
 
 ChemPotential = 0
 
-trialmatrix = copy.deepcopy(S)
-currentmatrix = copy.deepcopy(S)
+
 FreeEnergies = np.zeros(measure)
 
 def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
@@ -241,7 +240,7 @@ def getEnergySquare(H_SF,Beta):
     EnergySq = getEnergy(H_SF,Beta)**2 + np.sum(np.multiply(((e-ChemPotential)**2), getFermiDirac(e,Beta),( 1 - getFermiDirac(e,Beta))))
     return EnergySq          
 
-def getHeatCapacity(Energy, EnergySquare, Beta):
+def getHeatCapacity(H_SF, Beta):
     
     e,v = np.linalg.eigh(H_SF.toarray()) 
     
@@ -255,14 +254,14 @@ with open(r'MCdata.txt' + "_" + str(L) + "_" + str(temp) + "_" + str(sweeps) + "
     # generate random classical spins
     S = np.random.normal(0,1,size=(L**D,3))
     S = (S.T/np.linalg.norm(S,axis=1)).T
-    currentmatrix = S
+    currentmatrix = copy.deepcopy(S)
     #H_SF, currentmatrix = load(H_SF, currentmatrix, Beta)
     for h in range(measure):
         for k in range(steps):
             
             currentmatrix, CurrentFreeEnergy = sweep(Hk_pbc, currentmatrix, Beta, sweeps)    
      
-        if h > 50:
+        if h > 500:
             
             H_SF = get_H_SF(Hk_pbc, currentmatrix, J=J)
             FreeEnergies[h] = CurrentFreeEnergy
@@ -279,7 +278,7 @@ with open(r'MCdata.txt' + "_" + str(L) + "_" + str(temp) + "_" + str(sweeps) + "
             #EnergySquare = EnergySquare[0]
             EnergySquare = round(EnergySquare, 8)
             
-            HeatCapacity = getHeatCapacity(Energy, EnergySquare, Beta)
+            HeatCapacity = getHeatCapacity(H_SF, Beta)
             
             #f.write(str(Energy) + " ")
             f.write('{:<12}  {:<12}  {:<12}  {:<12} '.format(Energy, HeatCapacity, TotalStagMag, EnergySquare))
