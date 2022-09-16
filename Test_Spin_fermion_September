@@ -167,10 +167,10 @@ def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
         trialspinx = (initspinx + deltaspinx)%1                #Get trial spin
         trialspiny = (initspiny + deltaspiny)%1                #Get trial spin
         #trialspinz = (initspinz + deltaspinz)%1                #Get trial spin
-        """
+        
         found = False
         while found == False:
-            Spin = np.random.uniform(0,1,size=3)
+            Spin = np.random.uniform(-1,1,size=3)
             
             if np.linalg.norm(Spin) <= 1:
                 found = True
@@ -179,7 +179,9 @@ def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
         Spin[0] /= np.sqrt(SpinLength)
         Spin[1] /= np.sqrt(SpinLength)
         Spin[2] /= np.sqrt(SpinLength)
-        #Spin = np.divide(Spin,np.linalg.norm(Spin))
+        """
+        Spin = np.random.normal(-1,1,size=3)
+        Spin = np.divide(Spin,np.linalg.norm(Spin))
         trialmatrix[randy,0] = Spin[0]              #Get trial matrix by changing element of S matrix
         trialmatrix[randy,1] = Spin[1]              #Get trial matrix by changing element of S matrix
         trialmatrix[randy,2] = Spin[2]              #Get trial matrix by changing element of S matrix
@@ -262,7 +264,7 @@ def getHeatCapacity(H_SF, Beta):
 
 with open(r'MCdata.txt' + "_" + str(L) + "_" + str(temp) + "_" + str(sweeps) + "_" + str(steps) + "_" + str(measure), 'w') as f:
     # generate random classical spins
-    S = np.random.normal(0,1,size=(L**D,3))
+    S = np.random.normal(-1,1,size=(L**D,3))
     S = (S.T/np.linalg.norm(S,axis=1)).T
     currentmatrix = copy.deepcopy(S)
     #H_SF, currentmatrix = load(H_SF, currentmatrix, Beta)
@@ -271,7 +273,7 @@ with open(r'MCdata.txt' + "_" + str(L) + "_" + str(temp) + "_" + str(sweeps) + "
             
             currentmatrix, CurrentFreeEnergy = sweep(Hk_pbc, currentmatrix, Beta, sweeps)    
      
-        if h > 500:
+        if h > 25:
             
             H_SF = get_H_SF(Hk_pbc, currentmatrix, J=J)
             FreeEnergies[h] = CurrentFreeEnergy
