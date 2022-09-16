@@ -168,7 +168,12 @@ def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
         trialspiny = (initspiny + deltaspiny)%1                #Get trial spin
         #trialspinz = (initspinz + deltaspinz)%1                #Get trial spin
         """
-        Spin = np.random.normal(0,1,size=3)
+        found = False
+        while found == False:
+            Spin = np.random.normal(0,1,size=3)
+            
+            if np.linalg.norm(Spin) <= 1:
+                found = True
         Spin = np.divide(Spin,np.linalg.norm(Spin))
         trialmatrix[randy,0] = Spin[0]              #Get trial matrix by changing element of S matrix
         trialmatrix[randy,1] = Spin[1]              #Get trial matrix by changing element of S matrix
@@ -244,7 +249,7 @@ def getHeatCapacity(H_SF, Beta):
     
     e,v = np.linalg.eigh(H_SF.toarray()) 
     
-    return getEnergy(H_SF,Beta)**2 + np.sum(np.multiply(((e-ChemPotential)**2), getFermiDirac(e,Beta),( 1 - getFermiDirac(e,Beta))))
+    return getEnergy(H_SF,Beta)**2 + np.sum(np.multiply(((e-ChemPotential)**2), np.divide(1,(np.exp(e*Beta)+1)),( 1 - np.divide(1,(np.exp(e*Beta)+1)))))
     
 
                                        
@@ -261,7 +266,7 @@ with open(r'MCdata.txt' + "_" + str(L) + "_" + str(temp) + "_" + str(sweeps) + "
             
             currentmatrix, CurrentFreeEnergy = sweep(Hk_pbc, currentmatrix, Beta, sweeps)    
      
-        if h > 500:
+        if h > 50:
             
             H_SF = get_H_SF(Hk_pbc, currentmatrix, J=J)
             FreeEnergies[h] = CurrentFreeEnergy
