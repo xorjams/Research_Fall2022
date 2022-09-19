@@ -150,11 +150,11 @@ def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
     e,v = np.linalg.eigh(H_SF.toarray())   
     
     CurrentArray = np.logaddexp(0, -Beta*(e-ChemPotential))
-    CurrentFreeEnergy = -(1/Beta)*np.sum(CurrentArray)  
+    CurrentFreeEnergy = (-np.divide(1,Beta))*np.sum(CurrentArray)  
     for i in range(sweeps):            #Metropolis sweep
         
-        randy = random.randrange(0,M-1)
-        trialmatrix = copy.deepcopy(currentmatrix)
+        randy = np.random.randint(0,M)
+        trialmatrix = copy.copy(currentmatrix)
         """deltaspinx = np.random.uniform(-1,1)         #Change in angle of spin
         deltaspiny = np.random.uniform(-1,1)         #Change in angle of spin
         deltaspinz = np.random.uniform(-1,1)         #Change in angle of spin
@@ -180,7 +180,7 @@ def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
         Spin[1] /= np.sqrt(SpinLength)
         Spin[2] /= np.sqrt(SpinLength)
         """
-        Spin = np.random.normal(-1,1,size=3)
+        Spin = np.random.normal(0,1,size=3)
         Spin = np.divide(Spin,np.linalg.norm(Spin))
         trialmatrix[randy,0] = Spin[0]              #Get trial matrix by changing element of S matrix
         trialmatrix[randy,1] = Spin[1]              #Get trial matrix by changing element of S matrix
@@ -198,14 +198,15 @@ def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
         TrialArray = np.logaddexp(0, ((np.multiply(-Beta,(TrialEigenvals - ChemPotential)))))
         TrialFreeEnergy = (-1/Beta)*np.sum(TrialArray)                              #Get the Trial Free Energy and Energy
         #TrialEnergy = np.sum(np.multiply((1/(np.exp(TrialEigenvals*Beta)+1)),TrialEigenvals))
-        EnergyDiff = Decimal(TrialFreeEnergy) - Decimal(CurrentFreeEnergy)
-        EnergyDiff = float(EnergyDiff)
+        #EnergyDiff = Decimal(TrialFreeEnergy) - Decimal(CurrentFreeEnergy)
+        EnergyDiff = TrialFreeEnergy - CurrentFreeEnergy
+        #EnergyDiff = float(EnergyDiff)
         
-        if TrialFreeEnergy < CurrentFreeEnergy or np.random.uniform(0.0,1.0) < np.exp(-Beta*(EnergyDiff)):                                 #Perform the random walk
+        if TrialFreeEnergy <= CurrentFreeEnergy or np.random.uniform(0.0,1.0) < np.exp(-Beta*(EnergyDiff)):                                 #Perform the random walk
 
-            H_SF = copy.deepcopy(TrialH_SF)
-            currentmatrix = copy.deepcopy(trialmatrix)
-            CurrentFreeEnergy = copy.deepcopy(TrialFreeEnergy)
+            H_SF = copy.copy(TrialH_SF)
+            currentmatrix = copy.copy(trialmatrix)
+            CurrentFreeEnergy = copy.copy(TrialFreeEnergy)
             
 
     
@@ -264,9 +265,9 @@ def getHeatCapacity(H_SF, Beta):
 
 with open(r'MCdata.txt' + "_" + str(L) + "_" + str(temp) + "_" + str(sweeps) + "_" + str(steps) + "_" + str(measure), 'w') as f:
     # generate random classical spins
-    S = np.random.normal(-1,1,size=(L**D,3))
+    S = np.random.normal(0,1,size=(L**D,3))
     S = (S.T/np.linalg.norm(S,axis=1)).T
-    currentmatrix = copy.deepcopy(S)
+    currentmatrix = copy.copy(S)
     #H_SF, currentmatrix = load(H_SF, currentmatrix, Beta)
     for h in range(measure):
         for k in range(steps):
