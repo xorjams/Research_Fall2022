@@ -1,0 +1,281 @@
+import numpy as np
+from scipy import linalg
+import scipy.sparse as sp
+import matplotlib.pyplot as plt
+from scipy.sparse import csr_matrix
+import random
+import math
+import csv
+import argparse
+import copy
+from decimal import *
+
+
+
+parser = argparse.ArgumentParser(description = 'Parameters of Spin Fermion Model')
+
+
+parser.add_argument('-c','--Coupling', type = float, help = 'spin-spin coupling')
+parser.add_argument('-d','--Dimension' ,type = int, help = 'spatial dimension')
+parser.add_argument('-s','--Size', type = int, help = 'system size')
+
+
+parser.add_argument('-FL', '--Flip', type = int, help = 'Number of spin flips per metropolis sweep')
+parser.add_argument('-SW','--sweep', type = int, help = 'Number of metropolis sweeps per step')
+parser.add_argument('-ST','--steps', type = float, help = 'Number of steps per measurement')
+parser.add_argument('-ME', '--Measure' , type = int, help = 'Number of measurements')
+parser.add_argument('-T','--temp', type = float, help = 'Temperature')
+#parser.add_argument('-Mu','--Chem', type = float, help = 'ChemPotential')
+
+
+
+
+args = parser.parse_args()
+
+
+J = args.Coupling
+D = args.Dimension # spatial dimension
+L = args.Size # system size
+M = L**D #Matrix size
+sweeps = args.sweep #Number of spin flips per metropolis sweep
+steps = args.steps #Number of Sweeps per recorded temperature
+steps = int(steps)
+measure = args.Measure
+
+temp = args.temp
+
+Beta = 1/temp
+
+
+def get_kin_cubic(Ls,pbc=True):
+	D = len(Ls)
+	N = np.prod(Ls)
+
+	i = np.arange(N)
+
+	H = sp.csr_matrix((N,N),dtype=np.float64)
+
+	for d in range(D):
+		A = np.prod(Ls[:d]).astype(np.int)
+
+		# get d-th coordinate from `i`
+		c = (i//A)%Ls[d]
+
+		if pbc:
+			row = i 
+			# set c -> (c+1)%Ls[d] in `row`,
+			# the term: -c*A, sets c=0 in `row`
+			# the term: ((c+1)%Ls[d])*A sets c=(c+1)%Ls[d] in `row`
+			col = row + ((c+1)%Ls[d] - c)*A 
+		else:
+			m = (c+1) < Ls[d] # get which sites have c+1 < Ls[d]
+
+			# row only contains sites that are not on the edge of the system
+			row = i[m]
+			# set c -> (c+1) in `i`
+			# because c+1 < Ls[d] then (c+1)%Ls[d] = c+1
+			# as such, (c+1-c)*A = 1*A = A
+			col = row + A 
+
+
+		# include matrix elements for row,col and col,row 
+		data = -np.ones_like(col)
+		T = sp.csr_matrix((data,(row,col)),shape=(N,N))
+		H += T + T.transpose()
+
+	return H
+
+
+def get_H_SF(Hkin,S,J=-1.0):
+
+	N = Hkin.shape[0]
+
+
+	Sp = -J*0.5*(S[:,0] + 1j*S[:,1])
+	Sz = -J*0.5*S[:,2]
+
+	B  = sp.dia_matrix((Sp.reshape(1,-1),[0]),shape=Hkin.shape)
+	Sz = sp.dia_matrix((Sz.reshape(1,-1),[0]),shape=Hkin.shape)
+
+	Aup = Hkin + Sz
+	Adn = Hkin - Sz
+
+	H_SF = sp.bmat([[Aup,B.conj()],[B,Adn]])
+
+	return H_SF
+
+
+
+ChemPotential = 0
+
+
+FreeEnergies = np.zeros(measure)
+
+def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
+    H_SF = get_H_SF(Hk_pbc, currentmatrix, J=J)
+    e,v = np.linalg.eigh(H_SF.toarray())   
+    
+    CurrentArray = np.logaddexp(0, -Beta*(e-ChemPotential))
+    CurrentFreeEnergy = (-np.divide(1,Beta))*np.sum(CurrentArray)  
+    for i in range(sweeps):            #Metropolis sweep
+        
+        randy = np.random.randint(0,M)
+        trialmatrix = copy.copy(currentmatrix)
+        """deltaspinx = np.random.uniform(-1,1)         #Change in angle of spin
+        deltaspiny = np.random.uniform(-1,1)         #Change in angle of spin
+        deltaspinz = np.random.uniform(-1,1)         #Change in angle of spin
+        
+        
+        initspinx = currentmatrix[[0,randy] ]            #Pick out random element of S matrix
+        initspiny = currentmatrix[[1,randy] ]            #Pick out random element of S matrix
+        initspinz = currentmatrix[[2,randy] ]            #Pick out random element of S matrix
+        
+        trialspinx = (initspinx + deltaspinx)%1                #Get trial spin
+        trialspiny = (initspiny + deltaspiny)%1                #Get trial spin
+        #trialspinz = (initspinz + deltaspinz)%1                #Get trial spin
+        
+        found = False
+        while found == False:
+            Spin = np.random.uniform(-1,1,size=3)
+            
+            if np.linalg.norm(Spin) <= 1:
+                found = True
+        SpinLength = np.linalg.norm(Spin)
+        
+        Spin[0] /= np.sqrt(SpinLength)
+        Spin[1] /= np.sqrt(SpinLength)
+        Spin[2] /= np.sqrt(SpinLength)
+        """
+        spinchoice = np.random.randint(0,2)
+        if spinchoice == 0:
+            spinchoice = -1
+        spinxyz = np.random.randint(0,3)
+        
+        trialmatrix[randy, 0] = 0
+        trialmatrix[randy, 1] = 0
+        trialmatrix[randy, 2] = 0
+        trialmatrix[randy,spinxyz] = 1*spinchoice              #Get trial matrix by changing element of S matrix
+
+        TrialH_SF = get_H_SF(Hk_pbc,trialmatrix,J=J)
+        
+        TrialEigenvals, TrialDiag = np.linalg.eigh(TrialH_SF.toarray())     #Get Eigenvals of Trial matrix
+                             #Get Eigenvals of Current matrix
+        
+       # CurrentArray = np.log(1 + np.exp(-Beta*(e-ChemPotential)))
+                    #Get the Free Energy and Energy
+       # CurrentEnergy = np.sum(np.multiply((1/(np.exp(e*Beta)+1)),e))
+        
+        
+        TrialArray = np.logaddexp(0, ((np.multiply(-Beta,(TrialEigenvals - ChemPotential)))))
+        TrialFreeEnergy = (-1/Beta)*np.sum(TrialArray)                              #Get the Trial Free Energy and Energy
+        #TrialEnergy = np.sum(np.multiply((1/(np.exp(TrialEigenvals*Beta)+1)),TrialEigenvals))
+        EnergyDiff = Decimal(TrialFreeEnergy) - Decimal(CurrentFreeEnergy)
+        #EnergyDiff = TrialFreeEnergy - CurrentFreeEnergy
+        EnergyDiff = float(EnergyDiff)
+        
+        if TrialFreeEnergy <= CurrentFreeEnergy or np.random.uniform(0.0,1.0) < np.exp(-Beta*(EnergyDiff)):                                 #Perform the random walk
+
+            H_SF = copy.copy(TrialH_SF)
+            currentmatrix = copy.copy(trialmatrix)
+            CurrentFreeEnergy = copy.copy(TrialFreeEnergy)
+            
+
+    
+    return currentmatrix, CurrentFreeEnergy
+
+def load(H_SF, currentmatrix, Beta):
+    for i in range(100):
+        H_SF = sweep(H_SF, currentmatrix, Beta)
+                
+def getEnergy(H_SF, Beta):
+    e,v = np.linalg.eigh(H_SF.toarray()) 
+    return np.sum(np.multiply((1/(np.exp(e*Beta)+1)),e))  
+       
+
+def getStaggeredMag(SpinMatrix):
+    x = currentmatrix[:,0]
+    y = currentmatrix[:,1]
+    z = currentmatrix[:,2]
+    
+    xpos = x[0:L-1:2]
+    xneg = x[1:L-1:2]
+    
+    ypos = y[0:L-1:2]
+    yneg = y[1:L-1:2]
+    
+    zpos = z[0:L-1:2]
+    zneg = z[1:L-1:2]
+    
+    xmag = np.sum(xpos) - np.sum(xneg)
+    ymag = np.sum(ypos) - np.sum(yneg)
+    zmag = np.sum(zpos) - np.sum(zneg)
+    
+    StaggMag = [xmag,ymag,zmag]
+    TotalStagMag = (1/L)*np.linalg.norm(StaggMag)
+    
+    return(TotalStagMag, StaggMag)
+
+def getFermiDirac(e, Beta):
+    
+    return np.divide(1,(np.exp(e*Beta)+1))
+
+def getEnergySquare(H_SF,Beta):
+    e,v = np.linalg.eigh(H_SF.toarray()) 
+    EnergySq = getEnergy(H_SF,Beta)**2 + np.sum(np.multiply(((e-ChemPotential)**2), getFermiDirac(e,Beta),( 1 - getFermiDirac(e,Beta))))
+    return EnergySq          
+
+def getHeatCapacity(H_SF, Beta):
+    
+    e,v = np.linalg.eigh(H_SF.toarray()) 
+    
+    return np.sum((np.multiply((1/(np.exp(e*Beta)+1)),e))**2)   + np.sum(np.multiply(((e-ChemPotential)**2), np.divide(1,(np.exp(e*Beta)+1)),( 1 - np.divide(1,(np.exp(e*Beta)+1)))))
+    
+
+                                       
+
+Hk_pbc = get_kin_cubic(D*[L],pbc=True)
+with open(r'MCdata.txt' + "_" + str(L) + "_" + str(temp) + "_" + str(sweeps) + "_" + str(steps) + "_" + str(measure), 'w') as f:
+    # generate random classical spins
+    S = np.random.normal(0,1,size=(L**D,3))
+    S = (S.T/np.linalg.norm(S,axis=1)).T
+    currentmatrix = copy.copy(S)
+    #H_SF, currentmatrix = load(H_SF, currentmatrix, Beta)
+    for h in range(measure):
+        for k in range(steps):
+            
+            currentmatrix, CurrentFreeEnergy = sweep(Hk_pbc, currentmatrix, Beta, sweeps)    
+     
+        if h > 25:
+            
+            H_SF = get_H_SF(Hk_pbc, currentmatrix, J=J)
+            FreeEnergies[h] = CurrentFreeEnergy
+            Energy = getEnergy(H_SF,Beta)
+            Energy = round(Energy, 6)
+            
+            TotalStagMag, StaggMag = getStaggeredMag(currentmatrix)
+           # StaggeredMag[0] = round(StaggeredMag[0], 6)
+           # StaggeredMag[1] = round(StaggeredMag[1], 6)
+           # StaggeredMag[2] = round(StaggeredMag[2], 6)
+    
+            
+            EnergySquare = getEnergySquare(H_SF, Beta)
+            #EnergySquare = EnergySquare[0]
+            EnergySquare = round(EnergySquare, 8)
+            
+            HeatCapacity = getHeatCapacity(H_SF, Beta)
+            
+            #f.write(str(Energy) + " ")
+            f.write('{:<12}  {:<12}  {:<12}  {:<12} '.format(Energy, HeatCapacity, TotalStagMag, EnergySquare))
+            #f.write(str(EnergySquare) + " ")
+            f.write("\n")
+            
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    f.close()
