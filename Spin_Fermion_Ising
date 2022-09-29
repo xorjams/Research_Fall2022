@@ -245,7 +245,7 @@ with open(r'MCdata.txt' + "_" + str(L) + "_" + str(temp) + "_" + str(sweeps) + "
             
             currentmatrix, CurrentFreeEnergy = sweep(Hk_pbc, currentmatrix, Beta, sweeps)    
      
-        if h > 25:
+        if h > 500:
             
             H_SF = get_H_SF(Hk_pbc, currentmatrix, J=J)
             FreeEnergies[h] = CurrentFreeEnergy
