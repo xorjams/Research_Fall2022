@@ -95,13 +95,13 @@ def get_H_SF(Hkin,S,J):
 
 
 	Sp = -J*0.5*(S[:,0] + 1j*S[:,1])
-	
+	Sz = -J*0.5*S[:,2]
 
 	B  = sp.dia_matrix((Sp.reshape(1,-1),[0]),shape=Hkin.shape)
+	Sz = sp.dia_matrix((Sz.reshape(1,-1),[0]),shape=Hkin.shape)
 
-
-	Aup = Hkin
-	Adn = Hkin 
+	Aup = Hkin + Sz
+	Adn = Hkin - Sz
 
 	H_SF = sp.bmat([[Aup,B.conj()],[B,Adn]])
 
@@ -176,10 +176,17 @@ def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
         Spin[1] /= np.sqrt(SpinLength)
         Spin[2] /= np.sqrt(SpinLength)
         """
-        Spin = np.random.normal(0,1,size=2)
-        Spin = np.divide(Spin,np.linalg.norm(Spin))
-        trialmatrix[randy,0] = Spin[0]              #Get trial matrix by changing element of S matrix
-        trialmatrix[randy,1] = Spin[1]              #Get trial matrix by changing element of S matrix
+        #Spin = np.random.normal(0,1,size=3)
+        #Spin = np.divide(Spin,np.linalg.norm(Spin))
+        
+        theta = np.random.uniform(0,1)*2*math.pi
+        x = math.cos(theta)
+        y = math.sin(theta)
+        trialmatrix[randy,0] = x              #Get trial matrix by changing element of S matrix
+        trialmatrix[randy,1] = y              #Get trial matrix by changing element of S matrix
+        
+        
+        
         TrialH_SF = get_H_SF(Hk_pbc,trialmatrix,J=J)
         
         TrialEigenvals, TrialDiag = np.linalg.eigh(TrialH_SF.toarray())     #Get Eigenvals of Trial matrix
@@ -219,7 +226,7 @@ def getEnergy(H_SF, Beta):
 def getStaggeredMag(SpinMatrix):
     x = currentmatrix[:,0]
     y = currentmatrix[:,1]
-    
+    z = currentmatrix[:,2]
     
     xpos = x[0:L-1:2]
     xneg = x[1:L-1:2]
@@ -227,13 +234,14 @@ def getStaggeredMag(SpinMatrix):
     ypos = y[0:L-1:2]
     yneg = y[1:L-1:2]
     
-   
+    zpos = z[0:L-1:2]
+    zneg = z[1:L-1:2]
     
     xmag = np.sum(xpos) - np.sum(xneg)
     ymag = np.sum(ypos) - np.sum(yneg)
- 
+    zmag = np.sum(zpos) - np.sum(zneg)
     
-    StaggMag = [xmag,ymag]
+    StaggMag = [xmag,ymag,zmag]
     TotalStagMag = (1/L)*np.linalg.norm(StaggMag)
     
     return(TotalStagMag, StaggMag)
@@ -259,7 +267,7 @@ def getHeatCapacity(H_SF, Beta):
 
 with open(r'MCdata.txt' + "_" + str(L) + "_" + str(temp) + "_" + str(sweeps) + "_" + str(steps) + "_" + str(measure), 'w') as f:
     # generate random classical spins
-    S = np.random.normal(0,1,size=(L**D,2))
+    S = np.random.normal(0,1,size=(L**D,3))
     S = (S.T/np.linalg.norm(S,axis=1)).T
     currentmatrix = copy.copy(S)
     #H_SF, currentmatrix = load(H_SF, currentmatrix, Beta)
@@ -294,3 +302,11 @@ with open(r'MCdata.txt' + "_" + str(L) + "_" + str(temp) + "_" + str(sweeps) + "
             
         
     
+    
+    
+    
+    
+    
+    
+    
+    f.close()
