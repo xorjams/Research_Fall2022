@@ -115,15 +115,7 @@ ZeroKin = np.zeros((M,M))
 ChaosDiag = np.zeros(L**D)
 randlist = random.sample(range(0, L**D), 3)
 
-#for i in randlist:
-    #randindex = randlist
-    #ChaosDiag[randindex] = -1
-#Add the chaos term
 
-#for i in range(L**D):
-    #Hk_pbc[i,i] = ChaosDiag[i]
-
-#print(Hk_pbc)
 dense_Hk_pbc =csr_matrix.toarray(Hk_pbc)
 
 #print(dense_Hk_pbc)
@@ -155,31 +147,7 @@ def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
         
         randy = np.random.randint(0,M)
         trialmatrix = copy.copy(currentmatrix)
-        """deltaspinx = np.random.uniform(-1,1)         #Change in angle of spin
-        deltaspiny = np.random.uniform(-1,1)         #Change in angle of spin
-        deltaspinz = np.random.uniform(-1,1)         #Change in angle of spin
         
-        
-        initspinx = currentmatrix[[0,randy] ]            #Pick out random element of S matrix
-        initspiny = currentmatrix[[1,randy] ]            #Pick out random element of S matrix
-        initspinz = currentmatrix[[2,randy] ]            #Pick out random element of S matrix
-        
-        trialspinx = (initspinx + deltaspinx)%1                #Get trial spin
-        trialspiny = (initspiny + deltaspiny)%1                #Get trial spin
-        #trialspinz = (initspinz + deltaspinz)%1                #Get trial spin
-        
-        found = False
-        while found == False:
-            Spin = np.random.uniform(-1,1,size=3)
-            
-            if np.linalg.norm(Spin) <= 1:
-                found = True
-        SpinLength = np.linalg.norm(Spin)
-        
-        Spin[0] /= np.sqrt(SpinLength)
-        Spin[1] /= np.sqrt(SpinLength)
-        Spin[2] /= np.sqrt(SpinLength)
-        """
         Spin = np.random.normal(0,1,size=3)
         Spin = np.divide(Spin,np.linalg.norm(Spin))
         trialmatrix[randy,0] = Spin[0]              #Get trial matrix by changing element of S matrix
