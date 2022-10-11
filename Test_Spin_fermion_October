@@ -97,13 +97,13 @@ def get_H_SF(Hkin,S,J):
 
 
 	Sp = -J*0.5*(S[:,0] + 1j*S[:,1])
-	Sz = -J*0.5*S[:,2]
+	
 
 	B  = sp.dia_matrix((Sp.reshape(1,-1),[0]),shape=Hkin.shape)
-	Sz = sp.dia_matrix((Sz.reshape(1,-1),[0]),shape=Hkin.shape)
+	
 
-	Aup = Hkin + Sz
-	Adn = Hkin - Sz
+	Aup = Hkin 
+	Adn = Hkin 
 
 	H_SF = sp.bmat([[Aup,B.conj()],[B,Adn]])
 
@@ -178,10 +178,22 @@ def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
         Spin[1] /= np.sqrt(SpinLength)
         Spin[2] /= np.sqrt(SpinLength)
         """
-        u1 = np.random.uniform(0,1, size = 3)
-        u2 = np.random.uniform(0,1, size = 3)
+        currentx = trialmatrix[randy,0]
+        currenty = trialmatrix[randy,1]
+        currentz = trialmatrix[randy,2]
+        
+        curtheta = np.arccos(currentz)
+        curphi = np.arctan(currenty/currentx)
+        
+        u1 = np.random.normal(0.5,0.25)
+        u2 = np.random.normal(0.5,0.25)
+        
+      
         lm = np.arccos(2*u1 - 1) - math.pi/2
         phi = 2*math.pi*u2
+        
+        lm = curtheta + lm
+        phi = curphi + phi
         
         
    
