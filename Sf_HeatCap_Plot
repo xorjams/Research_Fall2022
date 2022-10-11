@@ -1,0 +1,92 @@
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+from numpy import diff
+#from Sf_DataPlot import dEdt
+
+os.chdir('C:\\Users\\15083\\Documents\\NEU_semester_2\\Feiguin_Group_Research_Spring_2022\\Code\\Sep_16')
+
+filenames =  os.listdir('C:\\Users\\15083\\Documents\\NEU_semester_2\\Feiguin_Group_Research_Spring_2022\\Code\\Sep_16')
+
+def read_col1(fname, col=0, convert=float, sep=None):
+
+    with open(fname) as fobj:
+         return [convert(line.split(sep=sep)[col]) for line in fobj]
+     
+        
+     
+def read_col2(fname, col = 1, convert = float, sep=None):
+    with open(fname) as fobj:
+         return [convert(line.split(sep=sep)[col]) for line in fobj]
+     
+        
+
+Data1 = np.loadtxt("McData_July")  
+sfTemp =  Data1[:,0]
+Beta = 1/sfTemp
+sfHeatCap =  Data1[:,2]
+                                                                        
+DataCombine = np.column_stack((sfTemp, sfHeatCap))
+
+DataCombineSort =  DataCombine[np.argsort(DataCombine[:, 0])]
+
+sfTemp = DataCombineSort[:,0]
+sfHeatCap = DataCombineSort[:,1]
+
+
+
+#sfTemp.sort()
+#sfEnergy.sort()
+
+
+
+sfTempSD = np.std(sfTemp)
+sfHeatCapSD = np.std(sfHeatCap)
+
+sfTempError = sfTempSD/np.sqrt(1000)
+
+sfEnergyError = sfHeatCap/np.sqrt(1000)
+fig, ax = plt.subplots()
+ax.set_ylabel("Variance")
+ax.set_xlabel("Temperature")
+
+
+
+
+
+
+
+os.chdir('C:\\Users\\15083\\Documents\\NEU_semester_2\\Feiguin_Group_Research_Spring_2022\\Code')
+
+Data = np.loadtxt("L_20_datatest.txt")  
+
+
+Temp = Data[:,0]
+#HeatCap = Data[:,1]
+Energy = Data[:,3]
+EnergySquare = Data[:,13]
+
+HeatCap = (EnergySquare - Energy**2)
+
+sfTempcorrect = Temp
+sfHeatCapcorrect = HeatCap
+
+TempError = np.std(Temp)/np.sqrt(1000)
+HeatCapError = np.std(HeatCap)/np.sqrt(1000)
+ 
+
+
+plt.errorbar(sfTempcorrect, sfHeatCapcorrect, yerr = HeatCapError, marker = ".", label = "3D_XY")
+
+plt.errorbar(sfTemp, sfHeatCap, yerr = sfEnergyError, xerr = None , marker = ".", label = "SpinFermion correct")
+
+plt.legend(["SpinFermionCorrect", "SpinFermion_Trial"] )
+
+
+
+
+#plt.plot(sfTemp, dEdt, marker = '.')
+
+plt.xscale("log")
+plt.show()
+
