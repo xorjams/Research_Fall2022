@@ -97,13 +97,13 @@ def get_H_SF(Hkin,S,J):
 
 
 	Sp = -J*0.5*(S[:,0] + 1j*S[:,1])
-	
+	Sz = -J*0.5*S[:,2]
 
 	B  = sp.dia_matrix((Sp.reshape(1,-1),[0]),shape=Hkin.shape)
-	
+	Sz = sp.dia_matrix((Sz.reshape(1,-1),[0]),shape=Hkin.shape)
 
-	Aup = Hkin 
-	Adn = Hkin 
+	Aup = Hkin + Sz
+	Adn = Hkin - Sz
 
 	H_SF = sp.bmat([[Aup,B.conj()],[B,Adn]])
 
@@ -147,7 +147,7 @@ def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
     H_SF = get_H_SF(Hk_pbc, currentmatrix, J=J)
     e,v = np.linalg.eigh(H_SF.toarray())   
     
-    CurrentArray = np.logaddexp(0, -Beta*(e-ChemPotential))
+    CurrentArray = np.logaddexp(0, -Beta*(e))
     CurrentFreeEnergy = (-np.divide(1,Beta))*np.sum(CurrentArray)  
     for i in range(sweeps):            #Metropolis sweep
         
@@ -178,28 +178,11 @@ def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
         Spin[1] /= np.sqrt(SpinLength)
         Spin[2] /= np.sqrt(SpinLength)
         """
-        currentx = trialmatrix[randy,0]
-        currenty = trialmatrix[randy,1]
-        currentz = trialmatrix[randy,2]
-        
-        curtheta = np.arccos(currentz)
-        curphi = np.arctan(currenty/currentx)
-        
-        u1 = np.random.normal(0.5,0.25)
-        u2 = np.random.normal(0.5,0.25)
-        
-      
-        lm = np.arccos(2*u1 - 1) - math.pi/2
-        phi = 2*math.pi*u2
-        
-        lm = curtheta + lm
-        phi = curphi + phi
-        
-        
-   
-        trialmatrix[randy,0] = np.cos(lm)*np.cos(phi)            #Get trial matrix by changing element of S matrix for x
-        trialmatrix[randy,1] = np.cos(lm)*np.sin(phi)             #Get trial matrix by changing element of S matrix or y
-        trialmatrix[randy,2] = np.sin(lm)              #Get trial matrix by changing element of S matrix for z
+        Spin = np.random.normal(0,1,size=3)
+        Spin = np.divide(Spin,np.linalg.norm(Spin))
+        trialmatrix[randy,0] = Spin[0]              #Get trial matrix by changing element of S matrix
+        trialmatrix[randy,1] = Spin[1]              #Get trial matrix by changing element of S matrix
+        trialmatrix[randy,2] = Spin[2]              #Get trial matrix by changing element of S matrix
         TrialH_SF = get_H_SF(Hk_pbc,trialmatrix,J=J)
         
         TrialEigenvals, TrialDiag = np.linalg.eigh(TrialH_SF.toarray())     #Get Eigenvals of Trial matrix
@@ -272,7 +255,7 @@ def getHeatCapacity(H_SF, Beta):
     
     e,v = np.linalg.eigh(H_SF.toarray()) 
     
-    return np.sum((np.multiply((1/(np.exp(e*Beta)+1)),e))**2)   + np.sum(np.multiply(((e-ChemPotential)**2), np.divide(1,(np.exp(e*Beta)+1)),( 1 - np.divide(1,(np.exp(e*Beta)+1)))))
+    return (np.sum((np.multiply((1/(np.exp(e*Beta)+1)),e))))**2   + np.sum(np.multiply(((e-ChemPotential)**2), np.divide(1,(np.exp(e*Beta)+1)),( 1 - np.divide(1,(np.exp(e*Beta)+1)))))
     
 
                                        
