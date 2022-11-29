@@ -1,5 +1,4 @@
 
-
 import numpy as np
 from scipy import linalg
 import scipy.sparse as sp
@@ -143,12 +142,13 @@ ChemPotential = 0
 
 FreeEnergies = np.zeros(measure)
 
-def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
+def sweep( Hk_pbc, currentmatrix, Beta, sweeps, HeisEnergy):
     H_SF = get_H_SF(Hk_pbc, currentmatrix, J=J)
     e,v = np.linalg.eigh(H_SF.toarray())   
     
-    CurrentArray = np.logaddexp(0, -Beta*(e))
-    CurrentFreeEnergy = (-np.divide(1,Beta))*np.sum(CurrentArray)  
+    
+    CurrentArray = np.logaddexp(0, -Beta*(e - ChemPotential))
+    CurrentFreeEnergy = (-np.divide(1,Beta))*np.sum(CurrentArray)  + HeisEnergy
     for i in range(sweeps):            #Metropolis sweep
         
         randy = np.random.randint(0,M)
@@ -187,14 +187,13 @@ def sweep( Hk_pbc, currentmatrix, Beta, sweeps):
         
         TrialEigenvals, TrialDiag = np.linalg.eigh(TrialH_SF.toarray())     #Get Eigenvals of Trial matrix
                              #Get Eigenvals of Current matrix
-        
-       # CurrentArray = np.log(1 + np.exp(-Beta*(e-ChemPotential)))
-                    #Get the Free Energy and Energy
-       # CurrentEnergy = np.sum(np.multiply((1/(np.exp(e*Beta)+1)),e))
+        TrialHeisEnergy = getHeisenberg(trialmatrix, -0.1, L)
         
         
-        TrialArray = np.logaddexp(0, ((np.multiply(-Beta,(TrialEigenvals - ChemPotential)))))
-        TrialFreeEnergy = (-1/Beta)*np.sum(TrialArray)                              #Get the Trial Free Energy and Energy
+        
+        
+        TrialArray = np.logaddexp(0, (((-Beta*(TrialEigenvals - ChemPotential)))))
+        TrialFreeEnergy = (-1/Beta)*np.sum(TrialArray) + TrialHeisEnergy                              #Get the Trial Free Energy and Energy
         #TrialEnergy = np.sum(np.multiply((1/(np.exp(TrialEigenvals*Beta)+1)),TrialEigenvals))
         EnergyDiff = Decimal(TrialFreeEnergy) - Decimal(CurrentFreeEnergy)
         #EnergyDiff = TrialFreeEnergy - CurrentFreeEnergy
@@ -248,17 +247,70 @@ def getFermiDirac(e, Beta):
 
 def getEnergySquare(H_SF,Beta):
     e,v = np.linalg.eigh(H_SF.toarray()) 
-    EnergySq = getEnergy(H_SF,Beta)**2 + np.sum(np.multiply(((e-ChemPotential)**2), getFermiDirac(e,Beta),( 1 - getFermiDirac(e,Beta))))
+    EnergySq = getEnergy(H_SF,Beta)**2 + np.sum((((e-ChemPotential)**2)*getFermiDirac(e,Beta)*( 1 - getFermiDirac(e,Beta))))
     return EnergySq          
 
 def getHeatCapacity(H_SF, Beta):
     
     e,v = np.linalg.eigh(H_SF.toarray()) 
     
-    return (np.sum((np.multiply((1/(np.exp(e*Beta)+1)),e))))**2   + np.sum(np.multiply(((e-ChemPotential)**2), np.divide(1,(np.exp(e*Beta)+1)),( 1 - np.divide(1,(np.exp(e*Beta)+1)))))
+    return (np.sum((np.multiply((1/(np.exp(e*Beta)+1)),e))))**2   + np.sum((((e-ChemPotential)**2)*np.divide(1,(np.exp(e*Beta)+1))*( 1 - np.divide(1,(np.exp(e*Beta)+1)))))
     
 
-                                       
+def getEnergyEigenvals(H_SF, Beta):
+    e,v = np.linalg.eigh(H_SF.toarray())
+    return e        
+
+def getHeisenberg(S, J, length):
+    
+  
+    HeisenArray = []
+    for i in range(length**2):
+        currentvector = S[i]
+        row = i//length
+        column = i%length
+        
+        rightvectorcoord = (row, column +1)
+        upvectorcoord = (row+1 , column)
+        if row >= length-1:
+            upvectorcoord = (0, column)
+            
+        if column >= length - 1:
+            rightvectorcoord = (row, 0)
+    
+        
+        rightvectorindex = rightvectorcoord[0]*length + rightvectorcoord[1]
+        upvectorindex = upvectorcoord[0]*length + upvectorcoord[1]
+        
+        
+       
+        
+        rightvector = S[rightvectorindex]
+        upvector = S[upvectorindex]
+        
+        CurrentHeisenEnergy = J*(np.dot(currentvector,rightvector) + np.dot(currentvector,upvector))
+        
+        HeisenArray.append(CurrentHeisenEnergy)
+        
+    HeisenEnergy = np.sum(HeisenArray)
+        
+    
+    return HeisenEnergy
+
+def getMag(SpinMatrix):
+    x = SpinMatrix[:,0]
+    y = SpinMatrix[:,1]
+    z = SpinMatrix[:,2]
+    
+    xmag = np.sum(x)
+    ymag = np.sum(y)
+    zmag = np.sum(z)
+    Mag = [xmag,ymag,zmag]
+    
+    TotalMag = (1/L)*np.linalg.norm(Mag)
+    
+    return TotalMag
+                                     
 
 
 with open(r'MCdata.txt' + "_" + str(L) + "_" + str(temp) + "_" + str(sweeps) + "_" + str(steps) + "_" + str(measure), 'w') as f:
@@ -266,11 +318,13 @@ with open(r'MCdata.txt' + "_" + str(L) + "_" + str(temp) + "_" + str(sweeps) + "
     S = np.random.normal(0,1,size=(L**D,3))
     S = (S.T/np.linalg.norm(S,axis=1)).T
     currentmatrix = copy.copy(S)
+    HeisenEnergy = getHeisenberg(S, -0.1, L)
     #H_SF, currentmatrix = load(H_SF, currentmatrix, Beta)
     for h in range(measure):
         for k in range(steps):
             
-            currentmatrix, CurrentFreeEnergy = sweep(Hk_pbc, currentmatrix, Beta, sweeps)    
+            HeisenEnergy = getHeisenberg(currentmatrix, -0.1, L)
+            currentmatrix, CurrentFreeEnergy = sweep(Hk_pbc, currentmatrix, Beta, sweeps, HeisenEnergy)    
      
         if h > 500:
             
@@ -279,23 +333,33 @@ with open(r'MCdata.txt' + "_" + str(L) + "_" + str(temp) + "_" + str(sweeps) + "
             Energy = getEnergy(H_SF,Beta)
             Energy = round(Energy, 6)
             
-            TotalStagMag, StaggMag = getStaggeredMag(currentmatrix)
+            #TotalStagMag, StaggMag = getStaggeredMag(currentmatrix)
+            Magnetization  = getMag(currentmatrix)
            # StaggeredMag[0] = round(StaggeredMag[0], 6)
            # StaggeredMag[1] = round(StaggeredMag[1], 6)
            # StaggeredMag[2] = round(StaggeredMag[2], 6)
     
             
-            EnergySquare = getEnergySquare(H_SF, Beta)
+            #EnergySquare = getEnergySquare(H_SF, Beta)
             #EnergySquare = EnergySquare[0]
-            EnergySquare = round(EnergySquare, 8)
+            #EnergySquare = round(EnergySquare, 8)
             
-            HeatCapacity = getHeatCapacity(H_SF, Beta)
+            #HeatCapacity = getHeatCapacity(H_SF, Beta)
+            #HeisEnergy = getHeisenberg(currentmatrix,-0.1, L)
             
-            #f.write(str(Energy) + " ")
-            f.write('{:<12}  {:<12}  {:<12}  {:<12} '.format(Energy, HeatCapacity, TotalStagMag, EnergySquare))
-            #f.write(str(EnergySquare) + " ")
-            f.write("\n")
+            EnergyEigs = getEnergyEigenvals(H_SF, Beta)
+            #EnergyEigs += HeisEnergy
             
+            
+           
+                #f.write(str(Energy) + " ")
+                
+            for Eig in EnergyEigs:
+                EigString = str(Eig)
+                f.write('{:<12} {:<12}'.format(EigString, Magnetization))
+                #f.write(str(EnergySquare) + " ")
+                f.write("\n")
+    
         
     
     
